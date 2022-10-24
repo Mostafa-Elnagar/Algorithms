@@ -6,8 +6,13 @@ class Box:
     def __init__(self, values):
         self.values = np.array(values)
         self.size = self.values.shape[0]
+        self.dig = build_digraph(self.values)
+        
+    def get_digraph(self):
+        return self.dig  
     
-    def draw_grid(self, size=3):
+    def draw_grid(self):
+        size = self.size
         _, ax = plt.subplots(1, 1, figsize=[size]*2)
         ticks = [i for i in range(self.size+1)]
         
@@ -18,6 +23,8 @@ class Box:
                        labelbottom=False,
                        left=False,
                        labelleft=False)
+        ax.set_xlim([0, size])
+        ax.set_ylim([0, size])
 
     def plot_weights(self):
         ax = plt.gca()
@@ -25,36 +32,47 @@ class Box:
         for i in range(size):
             for j in range(size):
                 ax.annotate(text=f"{self.values[i, j]}",
-                            xy=trans_idx(i, j, 0.4, -0.4, size))
+                            xy=trans_idx(i, j, 0.4, 0.4, size))
 
+    def get_shortest(self, start: Node, end: Node):
+        shortest = shortest_path(self.dig, start, end)
+        return shortest
+    
+    def plot_path(self, path):
+        trans = lambda pos: trans_idx(*pos, 0.5, 0.5, self.size)
+        
+        x, y = zip(*map(trans, path.get_path()))
+        ax = plt.gca()
+        ax.plot(x, y, 'b')
+        ax.scatter(x, y, s=60, color='r')
+        
+    
+    
 def trans_idx(i, j, xshift=0, yshift=0, size=3):
-    return j + xshift, size - i + yshift
+    return j + xshift, size - i - yshift
             
-    
-def DFS(graph: Digraph, start: Node, end: Node,
-        path: Path, shortest: Path) -> Path:  
-    """ Assumes graph is a Digraph; start and end are nodes;
-        path and shortest are lists of nodes
-        Returns a shortest path from start to end in graph """
+
+def find_paths(graph: Digraph, start: Node, end: Node, path: Path, paths):
     path = path.add_node(start)
-    
     if start == end:
-        return path
+        paths.append(path)
+        return paths
     
     for node in graph.children_of(start):
-        if not path.has(node): # avoid cycles
-            if shortest is None or path.get_cost() < shortest.get_cost():
-                new_path = DFS(graph, node, end, path, shortest)
-                if new_path is not None:
-                    shortest = new_path
-                    
-    return shortest
-
-
-def shortest_path(graph: Digraph, start: Node, end: Node) -> Path:
-    """ Assumes graph is a Digraph; start and end are nodes
-        Returns a shortest path from start to end in graph"""
-    return DFS(graph, start, end, Path(), None)
+        find_paths(graph, node, end, path, paths)
+        
+    return paths
+        
+def shortest_path(graph, start, end):
+    paths = find_paths(graph, start, end, Path(), [])
+    minimum = paths[0]
+    for path in paths:
+        print('cost:', path.get_cost(), 'path:', path.get_path())
+        if path.get_cost() < minimum.get_cost():
+            minimum = path
+            
+    return minimum
+    
 
 def build_digraph(arr):
     dig = Digraph()
@@ -62,36 +80,45 @@ def build_digraph(arr):
     
     for i in range(size):
         for j in range(size):
-            src = Node(arr[i, j], (i, j))
-            nxt = i+1, j+1
-            if nxt[0] < size and nxt[1] < size:
-                dest = Node(arr[*nxt], nxt)
+            dig.add_node(Node(arr[i, j], (i, j)))
+    
+    for i in range(size):
+        for j in range(size):
+            src = dig.get_node((i, j))
+            down_dig = i+1, j+1
+            if down_dig[0] < size and down_dig[1] < size:
+                dest = dig.get_node(down_dig)
                 dig.add_edge(Edge(src, dest))
-            if nxt[0] < size:
-                nxt = nxt[0], j
-                dest = Node(arr[*nxt], nxt)
+            if down_dig[0] < size:
+                right = down_dig[0], j
+                dest = dig.get_node(right)
                 dig.add_edge(Edge(src, dest))
-            if nxt[1] < size:
-                nxt = i, nxt[1]
-                dest = Node(arr[*nxt], nxt)
+            if down_dig[1] < size:
+                left = i, down_dig[1]
+                dest = dig.get_node(left)
                 dig.add_edge(Edge(src, dest))
+    
+    return dig
                 
     
     
 
 def main():
-    # BOX = [list(map(int, input().split())) for _ in range(3)]
-    BOX = [
-        [2, 14, 15],
-        [16, 29, 13],
-        [13, 12, 7]
-    ]
+    BOX = np.random.randint(1, 4, size=[3, 3])
 
     box = Box(BOX)
 
     box.draw_grid()
     box.plot_weights()
-
+    dig = box.get_digraph()
+    
+    start = dig.get_node((0, 0))
+    end = dig.get_node((box.size-1,) * 2)
+    
+    shortest = box.get_shortest(start, end)
+    box.plot_path(shortest)
+    
+    plt.title(f'the shortest path: {shortest.get_cost()}')
     plt.show()
 
 if __name__ == '__main__':

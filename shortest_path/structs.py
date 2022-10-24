@@ -31,22 +31,19 @@ class Digraph:
         
     def get_edges(self):
         return self.edges
-        
+    
     def add_node(self, node: Node):
-        if node in self.edges:
-            raise ValueError('Duplicate node')
-        else:
+        if node not in self.edges:
             self.edges[node] = []
+            return node
+        
+        return node
+        
     
     def add_edge(self, edge: Edge):
-        src = edge.get_src()
-        dest = edge.get_dest()
-        
-        if src not in self.edges:
-            self.edges[src] = []
-        if dest not in self.edges:
-            self.edges[dest] = []
-            
+        src = self.add_node(edge.get_src())
+        dest = self.add_node(edge.get_dest())
+           
         self.edges[src].append(dest)
     
     def get_node(self, position: tuple) -> Node:
@@ -58,21 +55,18 @@ class Digraph:
     def children_of(self, node: Node) -> list[Node]:
         return self.edges[node]
     
-    def has_node(self, node: Node) -> bool:
-        return node in self.edges
-    
     def __str__(self) -> str:
         result = ''
         
         for src in self.edges:
             for dest in self.edges[src]:
-                result += f"{src.get_position()} ->\
-                            {dest.get_position()}\n"
-                            
+                result += f"{src.get_position()}: {src.get_weight()} -> {dest.get_position()}: {dest.get_weight()}\n"
+      
         return result[:-1]       
 
 
 class Path:
+    """Path is an imutable opject to store the sequence of nodes and it's cost"""
     def __init__(self, nodes=[]):
         self.nodes = nodes
         self.cost, self.path = self.__calculations()
@@ -86,7 +80,7 @@ class Path:
             path.append(n.get_position())
             
         return cost, path
-    
+
     def get_nodes(self) -> list[Node]:
         """ Returns list of nodes in the path """
         return self.nodes
@@ -101,9 +95,7 @@ class Path:
     
     def add_node(self, node: Node):
         """ Adds a new node at the end of the path """
-        self.nodes.append(node)
-        self.cost += node.get_weight()
-        self.path.append(node.get_position())
+        return Path(self.nodes+[node])
     
     def has(self, node: Node):
         return node in self.nodes
